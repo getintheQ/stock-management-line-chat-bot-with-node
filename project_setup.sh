@@ -1,0 +1,177 @@
+#!/bin/bash
+
+# Exit on error
+set -e
+
+# Step 1: Create and navigate to the project directory
+PROJECT_DIR="my_project"
+echo "Creating project directory..."
+
+if [ ! -d "$PROJECT_DIR" ]; then
+    mkdir "$PROJECT_DIR"
+        echo "Project directory '$PROJECT_DIR' created."
+    else
+        echo "Project directory '$PROJECT_DIR' already exists."
+            fi
+
+            cd "$PROJECT_DIR"
+
+            # Step 2: Initialize npm and create package.json
+            echo "Initializing npm..."
+            if [ ! -f "package.json" ]; then
+                npm init -y
+                    echo "package.json created."
+                    else
+                        echo "package.json already exists."
+                        fi
+
+                        # Step 3: Install necessary dependencies
+                        echo "Installing dependencies..."
+                        npm install express axios dotenv @line/bot-sdk pg
+
+                        # Step 4: Install development dependencies
+                        echo "Installing development dependencies..."
+                        npm install --save-dev typescript @types/node @types/express nodemon
+
+                        # Step 5: Install LLM dependencies
+                        echo "Installing LLM dependencies..."
+                        npm install openai
+
+                        # Step 6: Initialize TypeScript and create tsconfig.json
+                        echo "Initializing TypeScript..."
+                        if [ ! -f "tsconfig.json" ]; then
+                            npx tsc --init
+                                echo "tsconfig.json created."
+                                else
+                                    echo "tsconfig.json already exists."
+                                    fi
+
+                                    # Step 7: Update tsconfig.json with recommended settings
+                                    echo "Configuring TypeScript..."
+                                    cat > tsconfig.json <<EOL
+                                    {
+                                      "compilerOptions": {
+                                          "target": "ESNext",
+                                              "module": "CommonJS",
+                                                  "strict": true,
+                                                      "esModuleInterop": true,
+                                                          "skipLibCheck": true,
+                                                              "forceConsistentCasingInFileNames": true,
+                                                                  "outDir": "./dist"
+                                                                    },
+                                                                      "include": ["src/**/*.ts"],
+                                                                        "exclude": ["node_modules"]
+                                                                        }
+                                                                        EOL
+
+                                                                        # Step 8: Create necessary directories
+                                                                        echo "Creating project structure..."
+                                                                        mkdir -p src/commands src/handlers src/models src/utils public/templates
+
+                                                                        # Step 9: Create a .env file for environment variables
+                                                                        echo "Creating .env file..."
+                                                                        cat > .env <<EOL
+                                                                        PORT=3000
+                                                                        LINE_CHANNEL_ACCESS_TOKEN=your_line_channel_access_token
+                                                                        LINE_CHANNEL_SECRET=your_line_channel_secret
+                                                                        LLM_API_KEY=your_llm_api_key
+                                                                        LLM_MODEL=gpt-3.5-turbo
+                                                                        STOCK_API_KEY=your_alpha_vantage_api_key
+                                                                        DB_HOST=localhost
+                                                                        DB_PORT=5432
+                                                                        DB_USER=your_db_user
+                                                                        DB_PASSWORD=your_db_password
+                                                                        DB_NAME=your_db_name
+                                                                        EOL
+
+                                                                        # Step 10: Create README.md file
+                                                                        echo "Creating README.md..."
+                                                                        cat > README.md <<EOL
+                                                                        # Stock Management Chatbot
+                                                                        This is a stock management chatbot built with Node.js and TypeScript, integrated with LINE Messaging API, LLM, and PostgreSQL.
+                                                                        EOL
+
+                                                                        # Step 11: Add start scripts to package.json
+                                                                        echo "Adding start script to package.json..."
+                                                                        sed -i '/"scripts": {/a\    "build": "tsc",\n    "start": "npm run build && node dist/index.js",\n    "dev": "nodemon src/index.ts",' package.json
+
+                                                                        # Step 12: Generate a .gitignore file
+                                                                        echo "Creating .gitignore..."
+                                                                        cat > .gitignore <<EOL
+                                                                        node_modules/
+                                                                        dist/
+                                                                        .env
+                                                                        EOL
+
+                                                                        # Step 13: Create TypeScript files
+                                                                        echo "Creating TypeScript files..."
+
+                                                                        # src/index.ts
+                                                                        cat > src/index.ts <<EOL
+                                                                        import express from 'express';
+                                                                        import dotenv from 'dotenv';
+                                                                        import { setupRoutes } from './handlers/eventHandler';
+                                                                        import { initializeDatabase } from './utils/database';
+
+                                                                        dotenv.config();
+
+                                                                        const app = express();
+                                                                        const port = process.env.PORT || 3000;
+
+                                                                        // Initialize the database
+                                                                        initializeDatabase();
+
+                                                                        setupRoutes(app);
+
+                                                                        app.listen(port, () => {
+                                                                            console.log(\`Server running on port \${port}\`);
+                                                                            });
+                                                                            EOL
+
+                                                                            # src/utils/database.ts
+                                                                            cat > src/utils/database.ts <<EOL
+                                                                            import { Pool } from 'pg';
+
+                                                                            const pool = new Pool({
+                                                                                host: process.env.DB_HOST,
+                                                                                    port: Number(process.env.DB_PORT),
+                                                                                        user: process.env.DB_USER,
+                                                                                            password: process.env.DB_PASSWORD,
+                                                                                                database: process.env.DB_NAME,
+                                                                                                });
+
+                                                                                                export const initializeDatabase = async () => {
+                                                                                                    try {
+                                                                                                            const client = await pool.connect();
+                                                                                                                    await client.query(\`
+                                                                                                                                CREATE TABLE IF NOT EXISTS users (
+                                                                                                                                                id SERIAL PRIMARY KEY,
+                                                                                                                                                                name VARCHAR(100) NOT NULL,
+                                                                                                                                                                                email VARCHAR(100) UNIQUE NOT NULL
+                                                                                                                                                                                            );
+
+                                                                                                                                                                                                        CREATE TABLE IF NOT EXISTS stock_alerts (
+                                                                                                                                                                                                                        id SERIAL PRIMARY KEY,
+                                                                                                                                                                                                                                        user_id INTEGER REFERENCES users(id),
+                                                                                                                                                                                                                                                        stock_symbol VARCHAR(10) NOT NULL,
+                                                                                                                                                                                                                                                                        target_price FLOAT NOT NULL,
+                                                                                                                                                                                                                                                                                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                                                                                                                                                                                                                                                                                                    );
+
+                                                                                                                                                                                                                                                                                                                CREATE TABLE IF NOT EXISTS user_preferences (
+                                                                                                                                                                                                                                                                                                                                id SERIAL PRIMARY KEY,
+                                                                                                                                                                                                                                                                                                                                                user_id INTEGER REFERENCES users(id),
+                                                                                                                                                                                                                                                                                                                                                                language VARCHAR(10) NOT NULL,
+                                                                                                                                                                                                                                                                                                                                                                                timeframe VARCHAR(20) NOT NULL
+                                                                                                                                                                                                                                                                                                                                                                                            );
+                                                                                                                                                                                                                                                                                                                                                                                                    \`);
+                                                                                                                                                                                                                                                                                                                                                                                                            client.release();
+                                                                                                                                                                                                                                                                                                                                                                                                                    console.log('Database initialized successfully.');
+                                                                                                                                                                                                                                                                                                                                                                                                                        } catch (error) {
+                                                                                                                                                                                                                                                                                                                                                                                                                                console.error('Error initializing database:', error);
+                                                                                                                                                                                                                                                                                                                                                                                                                                    }
+                                                                                                                                                                                                                                                                                                                                                                                                                                    };
+                                                                                                                                                                                                                                                                                                                                                                                                                                    EOL
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                    # Step 14: Inform the user that the project setup is complete
+                                                                                                                                                                                                                                                                                                                                                                                                                                    echo "Project setup complete! Run 'npm run dev' to start the development server."
